@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
 namespace Thrust
@@ -8,26 +9,11 @@ namespace Thrust
 	{
 		private readonly int _id;
 		private readonly ThrustShell _shell;
-
-		public Window(ThrustShell shell, FileInfo file, WindowCreateInfo createInfo = null)
-			: this(shell, new Uri(file.FullName), createInfo)
+		
+		private Window(ThrustShell shell, int id)
 		{
-		}
-
-		public Window(ThrustShell shell, Uri url, WindowCreateInfo createInfo = null)
-		{
-			if (createInfo == null)
-			{
-				createInfo = new WindowCreateInfo();
-			}
-
 			_shell = shell;
-			_id = _shell.SendCommand("create", "", "window", null, new JObject
-			{
-				{"root_url", url.AbsoluteUri},
-				{"title", createInfo.Title},
-				{"has_frame", createInfo.HasFrame}
-			});
+			_id = id;
 
 			_shell.RegisterEventHandler(_id, EventHandler);
 		}
@@ -37,17 +23,17 @@ namespace Thrust
 
 		public void Show()
 		{
-			_shell.SendCommand("call", "show", null, _id, null);
+			_shell.SendCommand("call", "show", null, _id, null, false).Forget();
 		}
 
 		public void Close()
 		{
-			_shell.SendCommand("call", "close", null, _id, null);
+			_shell.SendCommand("call", "close", null, _id, null, false).Forget();
 		}
 
 		public void OpenDevtools()
 		{
-			_shell.SendCommand("call", "open_devtools", null, _id, null);
+			_shell.SendCommand("call", "open_devtools", null, _id, null, false).Forget();
 		}
 
 		private void EventHandler(string type, JObject eventObj)
@@ -64,6 +50,28 @@ namespace Thrust
 					});
 					break;
 			}
+		}
+
+		public static async Task<Window> Create(ThrustShell shell, FileInfo fileInfo, WindowCreateInfo createInfo = null)
+		{
+			return await Create(shell, new Uri(fileInfo.FullName), createInfo);
+		}
+
+		public static async Task<Window> Create(ThrustShell shell, Uri uri, WindowCreateInfo createInfo = null)
+		{
+			if (createInfo == null)
+			{
+				createInfo = new WindowCreateInfo();
+			}
+
+			var response = await shell.SendCommand("create", "", "window", null, new JObject
+			{
+				{"root_url", uri.AbsoluteUri},
+				{"title", createInfo.Title},
+				{"has_frame", createInfo.HasFrame}
+			});
+
+			return new Window(shell, (int)response["_target"]);
 		}
 	}
 }

@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Threading.Tasks;
 using Thrust;
 
 namespace Example
@@ -13,20 +14,20 @@ namespace Example
 			{
 				//shell.DebugMode = true;
 
-				CreateIndexWindow(shell);
+				CreateIndexWindow(shell).Forget();
 
 				shell.RunEventLoop();
 			}
 		}
 
-		private static void CreateIndexWindow(ThrustShell shell)
+		private static async Task CreateIndexWindow(ThrustShell shell)
 		{
 			// Create a new thrust window and show it on the screen
 			var createInfo = new WindowCreateInfo
 			{
 				HasFrame = false
 			};
-			var window = new Window(shell, new FileInfo("./index.html"), createInfo);
+			var window = await Window.Create(shell, new FileInfo("./index.html"), createInfo);
 			window.Show();
 			//window.OpenDevtools();
 

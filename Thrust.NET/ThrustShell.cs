@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -10,7 +11,12 @@ namespace Thrust
 	public sealed class ThrustShell : IDisposable
 	{
 		private const string Boundary = "--(Foo)++__THRUST_SHELL_BOUNDARY__++(Bar)--";
-		private readonly Dictionary<int, Action<string, JObject>> _eventHandlers = new Dictionary<int, Action<string, JObject>>();
+		private readonly Dictionary<int, JObject> _commandResults = new Dictionary<int, JObject>();
+		private readonly Dictionary<int, EventWaitHandle> _commandWaitHandles = new Dictionary<int, EventWaitHandle>();
+
+		private readonly Dictionary<int, Action<string, JObject>> _eventHandlers =
+			new Dictionary<int, Action<string, JObject>>();
+
 		private readonly Process _process;
 		private bool _keepRunning;
 		private int _lastId;
@@ -59,18 +65,34 @@ namespace Thrust
 					Console.WriteLine(evt.ToString(Formatting.None));
 				}
 
-				// Make sure it's an event, we're only interested in that
-				// TODO: Handle responses as well and make window creation async using them
-				if ((string) evt["_action"] != "event")
-					continue;
+				switch ((string) evt["_action"])
+				{
+					case "event":
+						// Get data from the event
+						var target = (int) evt["_target"];
+						var type = (string) evt["_type"];
+						var eventObj = (JObject) evt["_event"];
 
-				// Get data from the event
-				var target = (int) evt["_target"];
-				var type = (string) evt["_type"];
-				var eventObj = (JObject) evt["_event"];
+						// Pass on the event to the appropriate handler
+						_eventHandlers[target].Invoke(type, eventObj);
+						break;
+					case "reply":
+						// Get data from the response
+						var result = (JObject) evt["_result"];
+						var commandId = (int) evt["_id"];
 
-				// Pass on the event to the appropriate handler
-				_eventHandlers[target].Invoke(type, eventObj);
+						// Check if we have an awaiting command
+						if (_commandWaitHandles.ContainsKey(commandId))
+						{
+							// Write the data to the result dictionary
+							_commandResults[commandId] = result;
+
+							// Signal the waiting command we're done
+							_commandWaitHandles[commandId].Set();
+						}
+
+						break;
+				}
 			}
 		}
 
@@ -84,13 +106,13 @@ namespace Thrust
 			_eventHandlers[targetId] = action;
 		}
 
-		internal int SendCommand(string action, string method, string type, int? target, JObject arguments)
+		internal async Task<JObject> SendCommand(string action, string method, string type, int? target, JObject arguments, bool waitForResponse = true)
 		{
-			var id = GetNextId();
+			var commandId = GetNextId();
 			var jsonCommand = new JObject
 			{
 				// Used to reference back whatever we're about to do at a later point
-				{"_id", id},
+				{"_id", commandId},
 				// Communicates if we want to create or call
 				{"_action", action},
 				// Communicates what we want to call if applicable 
@@ -103,10 +125,35 @@ namespace Thrust
 				{"_args", arguments}
 			};
 
-			// Actually send over the command
-			WriteJson(jsonCommand);
+			if (waitForResponse)
+			{
+				// Create a new wait handle for our command so we can wait for a response
+				var waitHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
+				_commandWaitHandles[commandId] = waitHandle;
 
-			return id;
+				// Actually send over the command
+				WriteJson(jsonCommand);
+
+				// Hack to be able to wait on WaitOne()
+				return await Task.Run(() =>
+				{
+					// Wait till the event loop thread signals us
+					waitHandle.WaitOne();
+
+					// Retrieve the data the event loop has for us
+					var result = _commandResults[commandId];
+					_commandResults.Remove(commandId);
+
+					return result;
+				});
+			}
+			else
+			{
+				// Actually send over the command
+				WriteJson(jsonCommand);
+
+				return null;
+			}
 		}
 
 		private void WriteJson(JObject jsonCommand)

@@ -33,7 +33,13 @@ namespace Example
 
 			// If we close this window, we need to also stop thrust
 			window.Closed += (s, e) => shell.StopEventLoop();
-			window.RemoteReceived += (s, e) => window.Close();
+			window.RemoteReceived += (s, e) =>
+			{
+				if ((string) e.Message["payload"] == "close")
+				{
+					window.Close();
+				}
+			};
 		}
 	}
 }

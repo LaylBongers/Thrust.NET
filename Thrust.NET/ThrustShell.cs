@@ -10,7 +10,7 @@ namespace Thrust
 	public sealed class ThrustShell : IDisposable
 	{
 		private const string Boundary = "--(Foo)++__THRUST_SHELL_BOUNDARY__++(Bar)--";
-		private readonly Dictionary<int, Action<string>> _eventHandlers = new Dictionary<int, Action<string>>();
+		private readonly Dictionary<int, Action<string, JObject>> _eventHandlers = new Dictionary<int, Action<string, JObject>>();
 		private readonly Process _process;
 		private bool _keepRunning;
 		private int _lastId;
@@ -67,9 +67,10 @@ namespace Thrust
 				// Get data from the event
 				var target = (int) evt["_target"];
 				var type = (string) evt["_type"];
+				var eventObj = (JObject) evt["_event"];
 
 				// Pass on the event to the appropriate handler
-				_eventHandlers[target].Invoke(type);
+				_eventHandlers[target].Invoke(type, eventObj);
 			}
 		}
 
@@ -78,7 +79,7 @@ namespace Thrust
 			_keepRunning = false;
 		}
 
-		internal void RegisterEventHandler(int targetId, Action<string> action)
+		internal void RegisterEventHandler(int targetId, Action<string, JObject> action)
 		{
 			_eventHandlers[targetId] = action;
 		}

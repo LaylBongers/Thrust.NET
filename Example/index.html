@@ -3,10 +3,18 @@
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="utf-8"/>
+    <link rel="stylesheet" type="text/css" href="./Style/Reset.css"/>
+    <link rel="stylesheet" type="text/css" href="./Style/Style.css"/>
     <title>Hello World</title>
 </head>
 <body>
-<h1>Hello Thrust.NET World!</h1>
-<button>Click me!</button>
+    <header class="window-titlebar">
+        <div class="text">Hello Titlebar</div>
+        <button onclick=" THRUST.remote.send('close'); ">X</button>
+    </header>
+    <div class="window-body">
+        <h1>Hello Thrust.NET World!</h1>
+        <button>Click me!</button>
+    </div>
 </body>
 </html>

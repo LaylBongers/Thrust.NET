@@ -1,0 +1,33 @@
+﻿@font-face {
+  font-family: 'Roboto';
+  src: url('../Fonts/Roboto-Regular.ttf') format('truetype'); }
+
+body {
+  -webkit-user-select: none;
+  font-family: Roboto, sans-serif; }
+
+.window-titlebar {
+  -webkit-app-region: drag;
+  width: 100%;
+  height: 50px;
+  background-color: darkslateblue; }
+  .window-titlebar .text {
+    padding: 10px;
+    font-size: 30px;
+    display: inline-block;
+    color: white; }
+  .window-titlebar button {
+    -webkit-app-region: no-drag;
+    float: right;
+    border: 0;
+    padding: 8px;
+    width: 50px;
+    font-size: 30px;
+    background-color: transparent;
+    color: white; }
+
+.window-body {
+  padding: 10px; }
+
+h1 {
+  font-size: 34px; }

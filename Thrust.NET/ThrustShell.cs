@@ -11,6 +11,7 @@ namespace Thrust
 	public sealed class ThrustShell : IDisposable
 	{
 		private const string Boundary = "--(Foo)++__THRUST_SHELL_BOUNDARY__++(Bar)--";
+		private readonly EventWaitHandle _stopHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
 		private readonly Dictionary<int, JObject> _commandResults = new Dictionary<int, JObject>();
 		private readonly Dictionary<int, EventWaitHandle> _commandWaitHandles = new Dictionary<int, EventWaitHandle>();
 
@@ -46,59 +47,75 @@ namespace Thrust
 			_process.Dispose();
 		}
 
-		public void RunEventLoop()
+		public void StartEventLoop()
 		{
-			if (_keepRunning)
+			Task.Run(() =>
 			{
-				throw new InvalidOperationException("Cannot start running callback loop if already running.");
-			}
-
-			// Run the actual event loop
-			_keepRunning = true;
-			while (_keepRunning)
-			{
-				var evt = ReadJson();
-
-				// Write to the console for debugging
-				if (DebugMode)
+				if (_keepRunning)
 				{
-					Console.WriteLine(evt.ToString(Formatting.None));
+					throw new InvalidOperationException("Cannot start running callback loop if already running.");
 				}
 
-				switch ((string) evt["_action"])
+				// Run the actual event loop
+				_keepRunning = true;
+				while (_keepRunning)
 				{
-					case "event":
-						// Get data from the event
-						var target = (int) evt["_target"];
-						var type = (string) evt["_type"];
-						var eventObj = (JObject) evt["_event"];
+					var evt = ReadJson();
 
-						// Pass on the event to the appropriate handler
-						_eventHandlers[target].Invoke(type, eventObj);
+					// If we got back null, something went wrong, immediately quit
+					if (evt == null)
+					{
 						break;
-					case "reply":
-						// Get data from the response
-						var result = (JObject) evt["_result"];
-						var commandId = (int) evt["_id"];
+					}
 
-						// Check if we have an awaiting command
-						if (_commandWaitHandles.ContainsKey(commandId))
-						{
-							// Write the data to the result dictionary
-							_commandResults[commandId] = result;
+					// Write to the console for debugging
+					if (DebugMode)
+					{
+						Console.WriteLine(evt.ToString(Formatting.None));
+					}
 
-							// Signal the waiting command we're done
-							_commandWaitHandles[commandId].Set();
-						}
+					switch ((string) evt["_action"])
+					{
+						case "event":
+							// Get data from the event
+							var target = (int) evt["_target"];
+							var type = (string) evt["_type"];
+							var eventObj = (JObject) evt["_event"];
 
-						break;
+							// Pass on the event to the appropriate handler
+							_eventHandlers[target].Invoke(type, eventObj);
+							break;
+						case "reply":
+							// Get data from the response
+							var result = (JObject) evt["_result"];
+							var commandId = (int) evt["_id"];
+
+							// Check if we have an awaiting command
+							if (_commandWaitHandles.ContainsKey(commandId))
+							{
+								// Write the data to the result dictionary
+								_commandResults[commandId] = result;
+
+								// Signal the waiting command we're done
+								_commandWaitHandles[commandId].Set();
+							}
+
+							break;
+					}
 				}
-			}
+
+				_stopHandle.Set();
+			});
 		}
 
 		public void StopEventLoop()
 		{
 			_keepRunning = false;
+		}
+
+		public void AwaitStop()
+		{
+			_stopHandle.WaitOne();
 		}
 
 		internal void RegisterEventHandler(int targetId, Action<string, JObject> action)
@@ -169,6 +186,12 @@ namespace Thrust
 			// Wait till we get something that isn't the boundary
 			while ((raw = _process.StandardOutput.ReadLine()) == Boundary)
 			{
+			}
+
+			// If we got back null, something has gone horribly wrong, probably an exception
+			if (raw == null)
+			{
+				return null;
 			}
 
 			// We got a json object, parse it!

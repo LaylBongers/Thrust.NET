@@ -9,7 +9,7 @@ namespace Thrust
 	{
 		private readonly int _id;
 		private readonly ThrustShell _shell;
-		
+
 		private Window(ThrustShell shell, int id)
 		{
 			_shell = shell;
@@ -29,6 +29,11 @@ namespace Thrust
 		public void Close()
 		{
 			_shell.SendCommand("call", "close", null, _id, null, false).Forget();
+		}
+
+		public void SendRemote(JObject message)
+		{
+			_shell.SendCommand("call", "remote", null, _id, new JObject {{"message", message}}, false).Forget();
 		}
 
 		public void OpenDevtools()
@@ -71,7 +76,7 @@ namespace Thrust
 				{"has_frame", createInfo.HasFrame}
 			});
 
-			return new Window(shell, (int)response["_target"]);
+			return new Window(shell, (int) response["_target"]);
 		}
 	}
 }

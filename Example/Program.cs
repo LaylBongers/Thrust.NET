@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using Thrust;
 
 namespace Example
@@ -8,15 +9,20 @@ namespace Example
 	{
 		private static void Main()
 		{
-			// IMPORTANT: Set any assets you want to use in your application to "Copy to Output Directory: Copy if newer"
+			// IMPORTANT: Set any assets you want to use in your application to "Copy to Output Directory: Copy if newer";
+			AsyncMain().Wait();
+		}
 
+		private static async Task AsyncMain()
+		{
 			using (var shell = new ThrustShell(@"C:\thrust-shell\thrust_shell.exe"))
 			{
 				//shell.DebugMode = true;
+				shell.StartEventLoop();
 
-				CreateIndexWindow(shell).Forget();
+				await CreateIndexWindow(shell);
 
-				shell.RunEventLoop();
+				shell.AwaitStop();
 			}
 		}
 
@@ -35,9 +41,14 @@ namespace Example
 			window.Closed += (s, e) => shell.StopEventLoop();
 			window.RemoteReceived += (s, e) =>
 			{
-				if ((string) e.Message["payload"] == "close")
+				switch ((string) e.Message["action"])
 				{
-					window.Close();
+					case "close":
+						window.Close();
+						break;
+					case "button_click":
+						window.SendRemote(new JObject {{"Hello", "From Thrust.NET!"}});
+						break;
 				}
 			};
 		}

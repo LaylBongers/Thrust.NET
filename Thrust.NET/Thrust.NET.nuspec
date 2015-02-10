@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>$id$</id>
+    <version>$version$</version>
+    <title>$title$</title>
+    <authors>$author$</authors>
+    <owners>$author$</owners>
+    <licenseUrl>https://github.com/LaylConway/Thrust.NET/blob/develop/LICENSE.txt</licenseUrl>
+    <projectUrl>https://github.com/LaylConway/Thrust.NET</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <copyright>Copyright © EdgeWorks Games</copyright>
+    <tags>html5 window thrust javascript</tags>
+  </metadata>
+</package>
